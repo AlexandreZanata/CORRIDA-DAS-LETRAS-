@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrida das Letras</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #333; /* Cor do fundo */
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 95%;
+            height: calc(200vh - 100px); /* Altura aumentada para preencher mais a tela */
+            background-color: #000; /* Cor do tabuleiro */
+            border: 1px solid #fff;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: rgb(255, 0, 0); /* Cor do jogador */
+            color: white;
+            border: 2px solid #fff; /* Borda clara para o jogador */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 34px; /* Tamanho da fonte do jogador */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+        }
+
+        .letter {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #FDFC01; /* Cor das letras */
+            color: rgb(0, 0, 0);
+            border: 2px solid rgb(255, 254, 254); /* Borda clara para as letras */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 34px; /* Tamanho da fonte das letras */
+            font-weight: bold;
+        }
+
+        .dot {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background-color: yellow; /* Cor das bolinhas */
+            border-radius: 50%;
+        }
+
+        #score {
+            font-size: 40px; /* Tamanho da fonte do placar */
+            margin-bottom: 0%;
+        }
+
+        #collected-letters {
+            font-size: 50px; /* Tamanho da fonte do painel de letras */
+            display: flex;
+            gap: 10px;
+            font-weight: bolder;
+        }
+
+        #restart-button {
+            display: none;
+            padding: 10px 20px;
+            font-size: 24px;
+            background-color: green;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Pontos: 0</div>
+    <div id="collected-letters">a</div>
+    <div id="game-container">
+        <div id="player">A</div>
+    </div>
+    <button id="restart-button" onclick="restartGame()">Reiniciar</button>
+    <script>
+        let player = document.getElementById('player');
+let gameContainer = document.getElementById('game-container');
+let scoreDisplay = document.getElementById('score');
+let collectedLettersDisplay = document.getElementById('collected-letters');
+let restartButton = document.getElementById('restart-button');
+let score = 0;
+let collectedLetters = 'a';
+let collectedLettersSet = new Set(['a']); // Conjunto para armazenar as letras capturadas
+let lettersToCapture = 2; // Número de vezes que cada letra deve ser capturada
+let dotsCount = 150; // Número de bolinhas
+let clickTarget = null;
+let moveInterval = null;
+let maxDistance = 4 * player.clientWidth;
+
+document.addEventListener('keydown', (e) => {
+    let left = player.offsetLeft;
+    let top = player.offsetTop;
+
+    switch (e.key) {
+        case 'ArrowUp':
+            if (top > 0) player.style.top = top - 10 + 'px';
+            break;
+        case 'ArrowDown':
+            if (top < gameContainer.clientHeight - player.clientHeight) player.style.top = top + 10 + 'px';
+            break;
+        case 'ArrowLeft':
+            if (left > 0) player.style.left = left - 10 + 'px';
+            break;
+        case 'ArrowRight':
+            if (left < gameContainer.clientWidth - player.clientWidth) player.style.left = left + 10 + 'px';
+            break;
+    }
+
+    checkCollision();
+});
+
+gameContainer.addEventListener('click', (e) => {
+    let rect = gameContainer.getBoundingClientRect();
+    clickTarget = {
+        x: e.clientX - rect.left - player.clientWidth / 2,
+        y: e.clientY - rect.top - player.clientHeight / 2,
+        startX: player.offsetLeft,
+        startY: player.offsetTop
+    };
+
+    if (moveInterval) clearInterval(moveInterval);
+    moveInterval = setInterval(moveTowardsClick, 50);
+});
+
+function moveTowardsClick() {
+    if (!clickTarget) return;
+
+    let playerLeft = player.offsetLeft;
+    let playerTop = player.offsetTop;
+    let dx = clickTarget.x - playerLeft;
+    let dy = clickTarget.y - playerTop;
+    let distance = Math.sqrt(dx * dx + dy * dy);
+    let totalDistance = Math.sqrt(
+        Math.pow(clickTarget.startX - playerLeft, 2) + Math.pow(clickTarget.startY - playerTop, 2)
+    );
+
+    if (distance < 10 || totalDistance >= maxDistance) {
+        if (totalDistance >= maxDistance) {
+            player.style.left = clickTarget.startX + maxDistance * Math.cos(Math.atan2(dy, dx)) + 'px';
+            player.style.top = clickTarget.startY + maxDistance * Math.sin(Math.atan2(dy, dx)) + 'px';
+        } else {
+            player.style.left = clickTarget.x + 'px';
+            player.style.top = clickTarget.y + 'px';
+        }
+        clearInterval(moveInterval);
+        clickTarget = null;
+    } else {
+        let angle = Math.atan2(dy, dx);
+        player.style.left = playerLeft + 10 * Math.cos(angle) + 'px';
+        player.style.top = playerTop + 10 * Math.sin(angle) + 'px';
+    }
+
+    checkCollision();
+}
+
+function createLetter(letter) {
+    let div = document.createElement('div');
+    div.className = 'letter';
+    div.textContent = letter;
+    do {
+        div.style.top = Math.random() * (gameContainer.clientHeight - 40) + 'px';
+        div.style.left = Math.random() * (gameContainer.clientWidth - 40) + 'px';
+    } while (isCollision(div.offsetLeft, div.offsetTop, true));
+    gameContainer.appendChild(div);
+}
+
+function createDot() {
+    let div = document.createElement('div');
+    div.className = 'dot';
+    do {
+        div.style.top = Math.random() * (gameContainer.clientHeight - 5) + 'px';
+        div.style.left = Math.random() * (gameContainer.clientWidth - 5) + 'px';
+    } while (isCollision(div.offsetLeft, div.offsetTop, true));
+    gameContainer.appendChild(div);
+}
+
+function isCollision(left, top, isStaticElement = false) {
+    let playerRect = { left: left, top: top, right: left + player.clientWidth, bottom: top + player.clientHeight };
+    if (isStaticElement) return false;
+    return false;
+}
+
+function checkCollision() {
+    let playerRect = player.getBoundingClientRect();
+    let letters = document.getElementsByClassName('letter');
+    let dots = document.getElementsByClassName('dot');
+
+    for (let i = 0; i < letters.length; i++) {
+        let letter = letters[i];
+        let letterRect = letter.getBoundingClientRect();
+
+        if (
+            playerRect.left < letterRect.left + letterRect.width &&
+            playerRect.left + playerRect.width > letterRect.left &&
+            playerRect.top < letterRect.top + letterRect.height &&
+            playerRect.top + playerRect.height > letterRect.top
+        ) {
+            collectedLetters += letter.textContent.toLowerCase();
+            collectedLettersSet.add(letter.textContent.toLowerCase());
+            score += 10;
+            scoreDisplay.textContent = 'Pontos: ' + score;
+            collectedLettersDisplay.textContent = Array.from(collectedLettersSet).join(' - ');
+            letter.remove();
+            if (collectedLettersSet.size < 26) {
+                createLetter(String.fromCharCode(65 + collectedLettersSet.size));
+            }
+        }
+    }
+
+    for (let i = 0; i < dots.length; i++) {
+        let dot = dots[i];
+        let dotRect = dot.getBoundingClientRect();
+
+        if (
+            playerRect.left < dotRect.left + dotRect.width &&
+            playerRect.left + playerRect.width > dotRect.left &&
+            playerRect.top < dotRect.top + dotRect.height &&
+            playerRect.top + playerRect.height > dotRect.top
+        ) {
+            score++;
+            scoreDisplay.textContent = 'Pontos: ' + score;
+            dot.remove();
+        }
+    }
+
+    if (collectedLettersSet.size >= 26) {
+        restartButton.style.display = 'block';
+    }
+}
+
+function restartGame() {
+    collectedLetters = 'a';
+    collectedLettersSet = new Set(['a']);
+    score = 0;
+    scoreDisplay.textContent = 'Pontos: ' + score;
+    collectedLettersDisplay.textContent = Array.from(collectedLettersSet).join(' - ');
+    document.querySelectorAll('.letter').forEach(letter => letter.remove());
+    document.querySelectorAll('.dot').forEach(dot => dot.remove());
+    createLetter('B');
+    for (let i = 0; i < dotsCount; i++) createDot();
+    restartButton.style.display = 'none';
+}
+
+// Inicializar a primeira letra
+createLetter('B');
+
+// Inicializar bolinhas
+for (let i = 0; i < dotsCount; i++) createDot();
+
+    </script>
+</body>
+</html>
